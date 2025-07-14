@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, session
 from services.feature_engineer import FeatureEngineer
 from services.data_processor import DataProcessor
 from database import db
-from models import Dataset, Feature
+from models import Dataset, Feature, FeatureEngineering
 import logging
 
 feature_engineer_bp = Blueprint('feature_engineer', __name__, url_prefix='/api/feature')
