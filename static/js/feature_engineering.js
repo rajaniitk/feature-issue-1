@@ -181,85 +181,54 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateFeatureSummary(features) {
         const container = document.getElementById('features-summary');
         
-        // Create column-wise layout instead of row-wise
-        let html = '<div class="features-columns-container">';
-        html += '<h4 class="features-title">Dataset Features Overview</h4>';
-        html += '<div class="features-columns-grid">';
+        // Simple column-wise layout without overlapping
+        let html = '<div class="row">';
         
-        // Group features by type for better organization
+        // Numeric Features
         const numericFeatures = features.filter(f => f.is_numeric);
+        html += '<div class="col-md-4">';
+        html += '<div class="feature-group numeric-group">';
+        html += '<h5><i class="fas fa-calculator"></i> Numeric Features</h5>';
+        numericFeatures.forEach(feature => {
+            html += `
+                <div class="feature-item">
+                    <span class="feature-name">${feature.name}</span>
+                    <span class="feature-type">${feature.dtype}</span>
+                    <small>Missing: ${feature.null_count} | Unique: ${feature.unique_count}</small>
+                </div>
+            `;
+        });
+        html += '</div></div>';
+        
+        // Categorical Features  
         const categoricalFeatures = features.filter(f => !f.is_numeric);
+        html += '<div class="col-md-4">';
+        html += '<div class="feature-group categorical-group">';
+        html += '<h5><i class="fas fa-tags"></i> Categorical Features</h5>';
+        categoricalFeatures.forEach(feature => {
+            html += `
+                <div class="feature-item">
+                    <span class="feature-name">${feature.name}</span>
+                    <span class="feature-type">${feature.dtype}</span>
+                    <small>Missing: ${feature.null_count} | Unique: ${feature.unique_count}</small>
+                </div>
+            `;
+        });
+        html += '</div></div>';
         
-        // Numeric Features Column
-        if (numericFeatures.length > 0) {
-            html += '<div class="feature-column numeric-column">';
-            html += '<h5 class="column-header"><i class="fas fa-calculator"></i> Numeric Features</h5>';
-            html += '<div class="features-list">';
-            numericFeatures.forEach(feature => {
-                html += `
-                    <div class="feature-item numeric">
-                        <div class="feature-details">
-                            <span class="feature-name">${feature.name}</span>
-                            <span class="feature-type-badge numeric">${feature.dtype}</span>
-                        </div>
-                        <div class="feature-stats-mini">
-                            <span class="stat-badge missing">Missing: ${feature.null_count}</span>
-                            <span class="stat-badge unique">Unique: ${feature.unique_count}</span>
-                        </div>
-                    </div>
-                `;
-            });
-            html += '</div></div>';
-        }
-        
-        // Categorical Features Column  
-        if (categoricalFeatures.length > 0) {
-            html += '<div class="feature-column categorical-column">';
-            html += '<h5 class="column-header"><i class="fas fa-tags"></i> Categorical Features</h5>';
-            html += '<div class="features-list">';
-            categoricalFeatures.forEach(feature => {
-                html += `
-                    <div class="feature-item categorical">
-                        <div class="feature-details">
-                            <span class="feature-name">${feature.name}</span>
-                            <span class="feature-type-badge categorical">${feature.dtype}</span>
-                        </div>
-                        <div class="feature-stats-mini">
-                            <span class="stat-badge missing">Missing: ${feature.null_count}</span>
-                            <span class="stat-badge unique">Unique: ${feature.unique_count}</span>
-                        </div>
-                    </div>
-                `;
-            });
-            html += '</div></div>';
-        }
-        
-        // Summary Column
-        html += '<div class="feature-column summary-column">';
-        html += '<h5 class="column-header"><i class="fas fa-chart-bar"></i> Summary</h5>';
-        html += '<div class="summary-stats">';
+        // Summary
+        html += '<div class="col-md-4">';
+        html += '<div class="feature-group summary-group">';
+        html += '<h5><i class="fas fa-chart-bar"></i> Summary</h5>';
         html += `
-            <div class="summary-stat">
-                <span class="stat-number">${features.length}</span>
-                <span class="stat-label">Total Features</span>
-            </div>
-            <div class="summary-stat">
-                <span class="stat-number">${numericFeatures.length}</span>
-                <span class="stat-label">Numeric</span>
-            </div>
-            <div class="summary-stat">
-                <span class="stat-number">${categoricalFeatures.length}</span>
-                <span class="stat-label">Categorical</span>
-            </div>
-            <div class="summary-stat">
-                <span class="stat-number">${features.reduce((sum, f) => sum + f.null_count, 0)}</span>
-                <span class="stat-label">Total Missing</span>
-            </div>
+            <div class="summary-stat">Total: ${features.length}</div>
+            <div class="summary-stat">Numeric: ${numericFeatures.length}</div>
+            <div class="summary-stat">Categorical: ${categoricalFeatures.length}</div>
+            <div class="summary-stat">Missing: ${features.reduce((sum, f) => sum + f.null_count, 0)}</div>
         `;
         html += '</div></div>';
         
-        html += '</div></div>';
-        
+        html += '</div>';
         container.innerHTML = html;
     }
     
