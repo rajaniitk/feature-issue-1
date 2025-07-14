@@ -844,24 +844,40 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const url = `/api/feature/download/${currentDatasetId}/${format}`;
             
-            // First check if the endpoint is available
-            const response = await fetch(url, { method: 'HEAD' });
+            // Try to download directly with better error handling
+            const response = await fetch(url, { method: 'GET' });
+            
             if (!response.ok) {
-                throw new Error(`Download not available: ${response.status}`);
+                // Try to parse JSON error response
+                let errorMessage = `Download failed (${response.status})`;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error || errorData.message || errorMessage;
+                } catch {
+                    errorMessage = `Server error: ${response.statusText}`;
+                }
+                throw new Error(errorMessage);
             }
+            
+            // Get the blob and create download link
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
             
             // Create a temporary link to trigger download
             const link = document.createElement('a');
-            link.href = url;
+            link.href = downloadUrl;
             link.download = `dataset_${currentDatasetId}_${Date.now()}.${format}`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             
+            // Clean up the blob URL
+            window.URL.revokeObjectURL(downloadUrl);
+            
             // Show success message after a brief delay
             setTimeout(() => {
                 hideDownloadProgress();
-                showSuccessNotification(`Dataset download started in ${format.toUpperCase()} format!`);
+                showSuccessNotification(`Dataset download completed in ${format.toUpperCase()} format!`);
             }, 1000);
             
         } catch (error) {

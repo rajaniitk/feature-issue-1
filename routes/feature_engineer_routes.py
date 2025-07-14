@@ -65,11 +65,18 @@ def download_dataset(dataset_id, format):
     import tempfile
     
     try:
-        dataset = Dataset.query.get_or_404(dataset_id)
+        dataset = Dataset.query.get(dataset_id)
+        if not dataset:
+            logging.error(f"Dataset with ID {dataset_id} not found")
+            abort(404, description=f"Dataset {dataset_id} not found")
+            
         processor = DataProcessor()
         
         # Load the current dataset (now always loads original since we fixed the save issue)
         df = processor.load_dataset(dataset)
+        if df is None or df.empty:
+            logging.error(f"Failed to load dataset {dataset_id} or dataset is empty")
+            abort(400, description="Dataset could not be loaded or is empty")
         
         # Check if we have any transformations to include
         transformations = FeatureEngineering.query.filter_by(dataset_id=dataset_id).all()
@@ -116,13 +123,25 @@ def download_dataset(dataset_id, format):
             )
             
         except Exception as file_error:
-            if temp_file and os.path.exists(temp_file.name):
-                os.unlink(temp_file.name)
+            if temp_file and hasattr(temp_file, 'name') and os.path.exists(temp_file.name):
+                try:
+                    os.unlink(temp_file.name)
+                except:
+                    pass
+            logging.error(f"File processing error: {str(file_error)}")
             raise file_error
             
     except Exception as e:
         logging.error(f"Download error: {str(e)}")
-        abort(500, description=f"Failed to download dataset: {str(e)}")
+        import traceback
+        logging.error(f"Full traceback: {traceback.format_exc()}")
+        
+        # Return a JSON error response instead of aborting
+        return jsonify({
+            'success': False,
+            'error': f'Download failed: {str(e)}',
+            'message': 'Please try again or contact support if the issue persists.'
+        }), 500
 
 @feature_engineer_bp.route('/scale', methods=['POST'])
 def apply_scaling():
