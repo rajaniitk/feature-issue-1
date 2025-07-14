@@ -200,7 +200,15 @@ document.addEventListener('DOMContentLoaded', function() {
         container.innerHTML = html;
     }
     
+    let isProcessing = false; // Add flag to prevent rapid successive calls
+    
     async function applyScaling() {
+        // Prevent multiple simultaneous calls
+        if (isProcessing) {
+            showError('Please wait for the current operation to complete');
+            return;
+        }
+        
         const featureName = document.getElementById('scaling-feature').value;
         const scalingMethod = document.getElementById('scaling-method').value;
         
@@ -209,6 +217,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        isProcessing = true; // Set flag
         showLoading('Applying scaling transformation...');
         
         try {
@@ -252,10 +261,17 @@ document.addEventListener('DOMContentLoaded', function() {
             showError('Failed to apply scaling: ' + error.message);
         } finally {
             hideLoading();
+            isProcessing = false; // Reset flag
         }
     }
     
     async function applyEncoding() {
+        // Prevent multiple simultaneous calls
+        if (isProcessing) {
+            showError('Please wait for the current operation to complete');
+            return;
+        }
+        
         const featureName = document.getElementById('encoding-feature').value;
         const encodingMethod = document.getElementById('encoding-method').value;
         
@@ -263,6 +279,8 @@ document.addEventListener('DOMContentLoaded', function() {
             showError('Please select feature and encoding method');
             return;
         }
+        
+        isProcessing = true;
         
         showLoading('Applying encoding transformation...');
         
@@ -323,10 +341,16 @@ document.addEventListener('DOMContentLoaded', function() {
             showError('Failed to apply encoding: ' + error.message);
         } finally {
             hideLoading();
+            isProcessing = false; // Reset flag
         }
     }
     
     async function applyBinning() {
+        if (isProcessing) {
+            showError('Please wait for the current operation to complete');
+            return;
+        }
+        
         const featureName = document.getElementById('binning-feature').value;
         const bins = parseInt(document.getElementById('binning-bins').value) || 5;
         const binningMethod = document.getElementById('binning-method').value;
@@ -336,6 +360,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        isProcessing = true;
         showLoading('Applying binning transformation...');
         
         try {
@@ -381,10 +406,16 @@ document.addEventListener('DOMContentLoaded', function() {
             showError('Failed to apply binning: ' + error.message);
         } finally {
             hideLoading();
+            isProcessing = false; // Reset flag
         }
     }
     
     async function applyTransformation() {
+        if (isProcessing) {
+            showError('Please wait for the current operation to complete');
+            return;
+        }
+        
         const featureName = document.getElementById('transformation-feature').value;
         const transformMethod = document.getElementById('transformation-method').value;
         
@@ -392,6 +423,8 @@ document.addEventListener('DOMContentLoaded', function() {
             showError('Please select feature and transformation method');
             return;
         }
+        
+        isProcessing = true;
         
         showLoading('Applying mathematical transformation...');
         
@@ -436,10 +469,16 @@ document.addEventListener('DOMContentLoaded', function() {
             showError('Failed to apply transformation: ' + error.message);
         } finally {
             hideLoading();
+            isProcessing = false; // Reset flag
         }
     }
     
     async function handleMissingValues() {
+        if (isProcessing) {
+            showError('Please wait for the current operation to complete');
+            return;
+        }
+        
         const featureName = document.getElementById('missing-feature').value;
         const strategy = document.getElementById('missing-strategy').value;
         
@@ -448,6 +487,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        isProcessing = true;
         showLoading('Handling missing values...');
         
         try {
@@ -493,10 +533,16 @@ document.addEventListener('DOMContentLoaded', function() {
             showError('Failed to handle missing values: ' + error.message);
         } finally {
             hideLoading();
+            isProcessing = false; // Reset flag
         }
     }
     
     async function createFeatures() {
+        if (isProcessing) {
+            showError('Please wait for the current operation to complete');
+            return;
+        }
+        
         const feature1 = document.getElementById('create-feature-1').value;
         const feature2 = document.getElementById('create-feature-2').value;
         const operation = document.getElementById('create-operation').value;
@@ -510,6 +556,8 @@ document.addEventListener('DOMContentLoaded', function() {
             showError('Please select different features');
             return;
         }
+        
+        isProcessing = true;
         
         showLoading('Creating new feature...');
         
@@ -563,6 +611,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showError('Failed to create feature: ' + error.message);
         } finally {
             hideLoading();
+            isProcessing = false; // Reset flag
         }
     }
     

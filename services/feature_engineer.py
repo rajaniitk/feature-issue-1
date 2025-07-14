@@ -1,4 +1,4 @@
-THIS SHOULD BE A LINTER ERRORimport pandas as pd
+import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
@@ -808,20 +808,32 @@ class FeatureEngineer:
         return stats
     
     def save_transformed_data(self, df, dataset):
-        # Save to a new file
-        new_path = dataset.file_path.replace('.', '_transformed.')
+        # Save transformed data to a new file WITHOUT updating the original dataset record
+        # This prevents recursive loading of transformed files
+        import os
+        from datetime import datetime
+        
+        # Always use the original file path as base
+        original_path = dataset.file_path
+        
+        # Create a new unique path with timestamp (but don't update dataset record)
+        base_name = os.path.splitext(original_path)[0]
+        extension = os.path.splitext(original_path)[1]
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        new_path = f"{base_name}_transformed_{timestamp}{extension}"
+        
+        # Save the transformed data to the new file
         df.to_csv(new_path, index=False)
         
-        # Update dataset record
-        dataset.file_path = new_path
-        dataset.rows = len(df)
-        dataset.columns = len(df.columns)
-        dataset.memory_usage = float(df.memory_usage(deep=True).sum())
-        dataset.column_info = self.data_processor.get_column_info(df)
-        dataset.data_types = df.dtypes.astype(str).to_dict()
-        dataset.missing_values = df.isnull().sum().to_dict()
+        # DO NOT update the original dataset record - this was causing the recursion
+        # The original dataset should always point to the original file
+        # Transformed data is saved separately and tracked via FeatureEngineering records
         
-        db.session.commit()
+        logging.info(f"Saved transformed data to: {new_path}")
+        logging.info(f"Original dataset file remains: {dataset.file_path}")
+        
+        # Return the path where transformed data was saved for reference
+        return new_path
     
     def revert_transformation(self, transformation_id):
         try:
