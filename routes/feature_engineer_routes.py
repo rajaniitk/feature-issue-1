@@ -62,6 +62,7 @@ def download_dataset(dataset_id, format):
     from flask import send_file, abort
     import os
     import pandas as pd
+    import numpy as np
     import tempfile
     
     try:
@@ -71,17 +72,69 @@ def download_dataset(dataset_id, format):
             abort(404, description=f"Dataset {dataset_id} not found")
             
         processor = DataProcessor()
+        engineer = FeatureEngineer()
         
-        # Load the current dataset (now always loads original since we fixed the save issue)
+        # Load the original dataset
         df = processor.load_dataset(dataset)
         if df is None or df.empty:
             logging.error(f"Failed to load dataset {dataset_id} or dataset is empty")
             abort(400, description="Dataset could not be loaded or is empty")
         
-        # Check if we have any transformations to include
-        transformations = FeatureEngineering.query.filter_by(dataset_id=dataset_id).all()
+        # Check for transformations and apply them to get the fully transformed dataset
+        transformations = FeatureEngineering.query.filter_by(dataset_id=dataset_id).order_by(FeatureEngineering.id).all()
         if transformations:
-            logging.info(f"Found {len(transformations)} transformations for dataset {dataset_id}")
+            logging.info(f"Applying {len(transformations)} transformations for download")
+            
+            # Apply each transformation in sequence to get the final transformed dataset
+            for transformation in transformations:
+                try:
+                    params = transformation.parameters or {}
+                    
+                    if transformation.transformation_type == 'scaling':
+                        columns = params.get('columns', [])
+                        method = params.get('method', 'standard')
+                        if columns and all(col in df.columns for col in columns):
+                            scaler = engineer._get_fresh_scaler(method)
+                            df[columns] = scaler.fit_transform(df[columns])
+                            
+                    elif transformation.transformation_type == 'encoding':
+                        columns = params.get('columns', [])
+                        method = params.get('method', 'onehot')
+                        if columns and all(col in df.columns for col in columns):
+                            if method == 'onehot':
+                                df = pd.get_dummies(df, columns=columns, prefix=columns)
+                            elif method == 'label':
+                                from sklearn.preprocessing import LabelEncoder
+                                for col in columns:
+                                    le = LabelEncoder()
+                                    df[col] = le.fit_transform(df[col].astype(str))
+                                    
+                    elif transformation.transformation_type == 'binning':
+                        columns = params.get('columns', [])
+                        method = params.get('method', 'equal_width')
+                        bins = params.get('bins', 5)
+                        if columns and all(col in df.columns for col in columns):
+                            for col in columns:
+                                if method == 'equal_width':
+                                    df[f'{col}_binned'] = pd.cut(df[col], bins=bins, labels=False)
+                                elif method == 'equal_frequency':
+                                    df[f'{col}_binned'] = pd.qcut(df[col], q=bins, labels=False, duplicates='drop')
+                                    
+                    elif transformation.transformation_type == 'transform':
+                        columns = params.get('columns', [])
+                        method = params.get('method', 'log')
+                        if columns and all(col in df.columns for col in columns):
+                            for col in columns:
+                                if method == 'log':
+                                    df[f'{col}_log'] = np.log1p(df[col])
+                                elif method == 'sqrt':
+                                    df[f'{col}_sqrt'] = np.sqrt(df[col])
+                                elif method == 'square':
+                                    df[f'{col}_square'] = df[col] ** 2
+                                    
+                except Exception as e:
+                    logging.warning(f"Could not apply transformation {transformation.id}: {str(e)}")
+                    continue
         
         # Create download with proper error handling
         temp_file = None
