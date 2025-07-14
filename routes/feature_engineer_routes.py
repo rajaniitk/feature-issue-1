@@ -58,7 +58,7 @@ def get_columns(dataset_id):
 
 @feature_engineer_bp.route('/download/<int:dataset_id>/<format>', methods=['GET'])
 def download_dataset(dataset_id, format):
-    """Download the processed dataset in the specified format"""
+    """Download the current dataset (original or transformed) in the specified format"""
     from flask import send_file, abort
     import os
     import pandas as pd
@@ -68,37 +68,61 @@ def download_dataset(dataset_id, format):
         dataset = Dataset.query.get_or_404(dataset_id)
         processor = DataProcessor()
         
-        # Load the dataset
+        # Load the current dataset (now always loads original since we fixed the save issue)
         df = processor.load_dataset(dataset)
         
-        # Create a temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{format}') as tmp_file:
+        # Check if we have any transformations to include
+        transformations = FeatureEngineering.query.filter_by(dataset_id=dataset_id).all()
+        if transformations:
+            logging.info(f"Found {len(transformations)} transformations for dataset {dataset_id}")
+        
+        # Create download with proper error handling
+        temp_file = None
+        try:
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f'.{format}')
+            
             if format == 'csv':
-                df.to_csv(tmp_file.name, index=False)
+                df.to_csv(temp_file.name, index=False)
                 mimetype = 'text/csv'
+                file_ext = 'csv'
             elif format == 'excel':
-                df.to_excel(tmp_file.name, index=False)
+                df.to_excel(temp_file.name, index=False)
                 mimetype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                file_ext = 'xlsx'
             elif format == 'json':
-                df.to_json(tmp_file.name, orient='records', indent=2)
+                df.to_json(temp_file.name, orient='records', indent=2)
                 mimetype = 'application/json'
+                file_ext = 'json'
             else:
-                abort(400, description="Invalid format")
+                if temp_file:
+                    temp_file.close()
+                    os.unlink(temp_file.name)
+                abort(400, description="Invalid format. Supported: csv, excel, json")
                 
-            # Generate filename
-            base_name = dataset.filename.rsplit('.', 1)[0]
-            filename = f"{base_name}_engineered.{format}"
+            temp_file.close()
+            
+            # Generate descriptive filename
+            base_name = dataset.filename.rsplit('.', 1)[0] if dataset.filename else f"dataset_{dataset_id}"
+            status = "with_transformations" if transformations else "original"
+            filename = f"{base_name}_{status}.{file_ext}"
+            
+            logging.info(f"Sending download: {filename} ({len(df)} rows, {len(df.columns)} columns)")
             
             return send_file(
-                tmp_file.name,
+                temp_file.name,
                 mimetype=mimetype,
                 as_attachment=True,
                 download_name=filename
             )
             
+        except Exception as file_error:
+            if temp_file and os.path.exists(temp_file.name):
+                os.unlink(temp_file.name)
+            raise file_error
+            
     except Exception as e:
         logging.error(f"Download error: {str(e)}")
-        abort(500, description="Failed to download dataset")
+        abort(500, description=f"Failed to download dataset: {str(e)}")
 
 @feature_engineer_bp.route('/scale', methods=['POST'])
 def apply_scaling():
