@@ -1,4 +1,4 @@
-import pandas as pd
+THIS SHOULD BE A LINTER ERRORimport pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
@@ -18,11 +18,15 @@ import json
 class FeatureEngineer:
     def __init__(self):
         self.data_processor = DataProcessor()
-        self.scalers = {
+    
+    def _get_fresh_scaler(self, method):
+        """Get a fresh scaler instance to avoid state issues"""
+        scalers = {
             'standard': StandardScaler(),
             'minmax': MinMaxScaler(),
             'robust': RobustScaler()
         }
+        return scalers.get(method, StandardScaler())
     
     def scale_features(self, dataset_id, columns, method='standard'):
         """Apply feature scaling using REAL data from uploaded datasets
@@ -65,7 +69,7 @@ class FeatureEngineer:
             before_stats = self.get_column_stats(df, columns)
             
             # Apply scaling to REAL data
-            scaler = self.scalers.get(method, StandardScaler())
+            scaler = self._get_fresh_scaler(method)
             df_scaled = df.copy()
             
             for col in columns:
