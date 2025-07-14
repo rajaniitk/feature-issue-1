@@ -807,104 +807,79 @@ class FeatureEngineer:
                     }
         return stats
     
-    def get_fully_transformed_dataset(self, dataset_id):
-        """Get the dataset with all transformations applied in sequence"""
+    def apply_transformations_to_dataframe(self, df, transformations):
+        """Apply a list of transformations to a dataframe without saving anything
+        
+        This method uses the core transformation logic from existing methods
+        but applies them to an in-memory dataframe for preview/download purposes
+        """
         try:
-            dataset = Dataset.query.get_or_404(dataset_id)
-            if not dataset or not dataset.file_path:
-                return None, 'No dataset found or invalid file path'
-            
-            # Load original dataset
-            df = self.data_processor.load_dataset(dataset)
-            if df is None or df.empty:
-                return None, 'Failed to load dataset or dataset is empty'
-            
-            # Get all transformations for this dataset in order
-            transformations = FeatureEngineering.query.filter_by(dataset_id=dataset_id).order_by(FeatureEngineering.id).all()
-            
-            if not transformations:
-                logging.info(f"No transformations found for dataset {dataset_id}, returning original data")
-                return df, None
-                
-            logging.info(f"Applying {len(transformations)} transformations to dataset {dataset_id}")
-            
-            # Apply each transformation in sequence
             for transformation in transformations:
-                try:
-                    params = transformation.parameters or {}
-                    
-                    if transformation.transformation_type == 'scaling':
-                        columns = params.get('columns', [])
-                        method = params.get('method', 'standard')
-                        if columns and all(col in df.columns for col in columns):
-                            scaler = self._get_fresh_scaler(method)
-                            df[columns] = scaler.fit_transform(df[columns])
-                            logging.info(f"Applied {method} scaling to columns: {columns}")
-                            
-                    elif transformation.transformation_type == 'encoding':
-                        columns = params.get('columns', [])
-                        method = params.get('method', 'onehot')
-                        if columns and all(col in df.columns for col in columns):
-                            if method == 'onehot':
-                                df = pd.get_dummies(df, columns=columns, prefix=columns)
-                            elif method == 'label':
-                                from sklearn.preprocessing import LabelEncoder
-                                for col in columns:
-                                    le = LabelEncoder()
-                                    df[col] = le.fit_transform(df[col].astype(str))
-                            logging.info(f"Applied {method} encoding to columns: {columns}")
-                                    
-                    elif transformation.transformation_type == 'binning':
-                        columns = params.get('columns', [])
-                        method = params.get('method', 'equal_width')
-                        bins = params.get('bins', 5)
-                        if columns and all(col in df.columns for col in columns):
+                params = transformation.parameters or {}
+                
+                if transformation.transformation_type == 'scaling':
+                    columns = params.get('columns', [])
+                    method = params.get('method', 'standard')
+                    if columns and all(col in df.columns for col in columns):
+                        # Use existing scaler logic
+                        scaler = self._get_fresh_scaler(method)
+                        df[columns] = scaler.fit_transform(df[columns])
+                        
+                elif transformation.transformation_type == 'encoding':
+                    columns = params.get('columns', [])
+                    method = params.get('method', 'onehot')
+                    if columns and all(col in df.columns for col in columns):
+                        if method == 'onehot':
+                            df = pd.get_dummies(df, columns=columns, prefix=columns)
+                        elif method == 'label':
+                            from sklearn.preprocessing import LabelEncoder
                             for col in columns:
-                                if method == 'equal_width':
-                                    df[f'{col}_binned'] = pd.cut(df[col], bins=bins, labels=False)
-                                elif method == 'equal_frequency':
-                                    df[f'{col}_binned'] = pd.qcut(df[col], q=bins, labels=False, duplicates='drop')
-                            logging.info(f"Applied {method} binning to columns: {columns}")
-                                    
-                    elif transformation.transformation_type == 'transform':
-                        columns = params.get('columns', [])
-                        method = params.get('method', 'log')
-                        if columns and all(col in df.columns for col in columns):
-                            for col in columns:
-                                if method == 'log':
-                                    df[f'{col}_log'] = np.log1p(df[col])
-                                elif method == 'sqrt':
-                                    df[f'{col}_sqrt'] = np.sqrt(df[col])
-                                elif method == 'square':
-                                    df[f'{col}_square'] = df[col] ** 2
-                            logging.info(f"Applied {method} transformation to columns: {columns}")
-                                    
-                    elif transformation.transformation_type == 'impute':
-                        columns = params.get('columns', [])
-                        strategy = params.get('strategy', 'mean')
-                        if columns and all(col in df.columns for col in columns):
-                            for col in columns:
-                                if strategy == 'mean' and df[col].dtype in ['int64', 'float64']:
-                                    df[col].fillna(df[col].mean(), inplace=True)
-                                elif strategy == 'median' and df[col].dtype in ['int64', 'float64']:
-                                    df[col].fillna(df[col].median(), inplace=True)
-                                elif strategy == 'mode':
-                                    df[col].fillna(df[col].mode()[0], inplace=True)
-                                elif strategy == 'forward_fill':
-                                    df[col].fillna(method='ffill', inplace=True)
-                                elif strategy == 'backward_fill':
-                                    df[col].fillna(method='bfill', inplace=True)
-                            logging.info(f"Applied {strategy} imputation to columns: {columns}")
-                                    
-                except Exception as e:
-                    logging.warning(f"Could not apply transformation {transformation.id}: {str(e)}")
-                    continue
-                    
-            logging.info(f"Successfully applied all transformations. Final dataset shape: {df.shape}")
+                                le = LabelEncoder()
+                                df[col] = le.fit_transform(df[col].astype(str))
+                                
+                elif transformation.transformation_type == 'binning':
+                    columns = params.get('columns', [])
+                    method = params.get('method', 'equal_width')
+                    bins = params.get('bins', 5)
+                    if columns and all(col in df.columns for col in columns):
+                        for col in columns:
+                            if method == 'equal_width':
+                                df[f'{col}_binned'] = pd.cut(df[col], bins=bins, labels=False)
+                            elif method == 'equal_frequency':
+                                df[f'{col}_binned'] = pd.qcut(df[col], q=bins, labels=False, duplicates='drop')
+                                
+                elif transformation.transformation_type == 'transform':
+                    columns = params.get('columns', [])
+                    method = params.get('method', 'log')
+                    if columns and all(col in df.columns for col in columns):
+                        for col in columns:
+                            if method == 'log':
+                                df[f'{col}_log'] = np.log1p(df[col])
+                            elif method == 'sqrt':
+                                df[f'{col}_sqrt'] = np.sqrt(df[col])
+                            elif method == 'square':
+                                df[f'{col}_square'] = df[col] ** 2
+                                
+                elif transformation.transformation_type == 'impute':
+                    columns = params.get('columns', [])
+                    strategy = params.get('strategy', 'mean')
+                    if columns and all(col in df.columns for col in columns):
+                        for col in columns:
+                            if strategy == 'mean' and df[col].dtype in ['int64', 'float64']:
+                                df[col].fillna(df[col].mean(), inplace=True)
+                            elif strategy == 'median' and df[col].dtype in ['int64', 'float64']:
+                                df[col].fillna(df[col].median(), inplace=True)
+                            elif strategy == 'mode':
+                                df[col].fillna(df[col].mode()[0], inplace=True)
+                            elif strategy == 'forward_fill':
+                                df[col].fillna(method='ffill', inplace=True)
+                            elif strategy == 'backward_fill':
+                                df[col].fillna(method='bfill', inplace=True)
+                                
             return df, None
             
         except Exception as e:
-            logging.error(f"Error getting transformed dataset: {str(e)}")
+            logging.error(f"Error applying transformations: {str(e)}")
             return None, str(e)
 
     def save_transformed_data(self, df, dataset):

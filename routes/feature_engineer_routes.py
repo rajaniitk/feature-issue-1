@@ -69,13 +69,26 @@ def download_dataset(dataset_id, format):
             logging.error(f"Dataset with ID {dataset_id} not found")
             abort(404, description=f"Dataset {dataset_id} not found")
             
-        # Use the FeatureEngineer service to get the fully transformed dataset
-        engineer = FeatureEngineer()
-        df, error = engineer.get_fully_transformed_dataset(dataset_id)
+        # Load the original dataset using existing DataProcessor
+        processor = DataProcessor()
+        df = processor.load_dataset(dataset)
+        if df is None or df.empty:
+            logging.error(f"Failed to load dataset {dataset_id} or dataset is empty")
+            abort(400, description="Dataset could not be loaded or is empty")
         
-        if df is None:
-            logging.error(f"Failed to get transformed dataset: {error}")
-            abort(400, description=error or "Dataset could not be loaded or is empty")
+        # Get transformations and apply them using existing service methods
+        transformations = FeatureEngineering.query.filter_by(dataset_id=dataset_id).order_by(FeatureEngineering.id).all()
+        
+        if transformations:
+            logging.info(f"Applying {len(transformations)} transformations for download")
+            engineer = FeatureEngineer()
+            df, error = engineer.apply_transformations_to_dataframe(df, transformations)
+            
+            if df is None:
+                logging.error(f"Failed to apply transformations: {error}")
+                abort(400, description=error or "Failed to apply transformations")
+        else:
+            logging.info(f"No transformations found, downloading original dataset")
         
         # Create download with proper error handling
         temp_file = None
